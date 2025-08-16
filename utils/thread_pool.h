@@ -1,51 +1,29 @@
-#ifndef THREAD_POOL_H_
-#define THREAD_POOL_H_
+#pragma once
 #include <thread>
 #include <vector>
-#include <future>
-#include <type_traits>
+#include <functional>
+#include <atomic>
 #include "threadsafe_queue.h"
-#include "callable.h"
-using namespace std;
 
-template <typename Iterable = vector<thread>>
-class ThreadPool
-{
-    class ThreadJoiner
-    {
-        Iterable &threads;
-
-    public:
-        explicit ThreadJoiner(Iterable &threads_) : threads(threads_)
-        {
-        }
-        ~ThreadJoiner()
-        {
-            for (auto it = threads.begin(); it != threads.end(); ++it)
-            {
-                if (it->joinable())
-                {
-                    it->join();
-                }
-            }
-        }
-    };
-
-private:
-    atomic<bool> done;
-    BoundedThreadsafeQueue<Callable> work_queue;
-    Iterable threads;
-    ThreadJoiner joiner;
-
+template <typename Iterable = std::vector<std::function<void()>>>
+class ThreadPool {
 public:
-    ThreadPool();
+    using Callable = std::function<void()>;
+    
+    ThreadPool(size_t thread_count = std::thread::hardware_concurrency());
     ~ThreadPool();
-    void Submit(Callable c);
-
+    
+    void Submit(Callable task);
+    void Stop();
+    
 private:
+    std::atomic<bool> done;
+    BoundedThreadsafeQueue<Callable> work_queue;
+    std::vector<std::thread> threads;
+    std::atomic<size_t> active_workers{0};
+    
     void WorkerThread();
 };
 
-#include "thread_pool.cpp"
-
-#endif // THREAD_POOL_H_
+// Include implementation for template class
+#include "thread_pool.inl"

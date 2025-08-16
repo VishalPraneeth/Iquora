@@ -1,16 +1,25 @@
 #pragma once
 #include <string>
-#include <fstream>
 #include <mutex>
+#include<functional>
 using namespace std;
 
 class WAL
 {
 public:
-    explicit WAL(const string &filename);
-    void append(const string &record);
+    using EntryHandler = function<void(const string&, const string&, const string&)>;
+
+     WAL(const string& path = "");
+    ~WAL();
+    
+    void append(const string& actor_id, const string& key, const string& value);
+    void set_path(const string& path);
+    void register_handler(EntryHandler handler);
 
 private:
-    ofstream file_;
+    EntryHandler handler_;
+    string path_;
     mutex mutex_;
+
+    void notify_handler(const string &actor_id, const string &key, const string &value);
 };
