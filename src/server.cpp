@@ -4,8 +4,8 @@
 #include <iostream>
 #include <chrono>
 
-#include "iquora.pb.h"
-#include "iquora.grpc.pb.h"
+#include <proto/iquora.pb.h>
+#include <proto/iquora.grpc.pb.h>
 
 IquoraServiceImpl::IquoraServiceImpl(std::shared_ptr<MemStore> memstore,
                                      std::shared_ptr<WAL> wal,

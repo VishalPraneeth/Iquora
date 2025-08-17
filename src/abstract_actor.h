@@ -30,7 +30,7 @@ public:
                           { OnMessageReceived(std::move(msg), sender); }};
         std::packaged_task<void()> pt{std::move(callable)};
         std::unique_ptr<Callable> ptUptr{new Callable(std::move(pt))};
-        queue.Push(std::move(ptUptr));
+        queue.Push(std::move(ptUptr));  
     }
 
     std::future<ResultType> Ask(MessageType msg, AbstractActor *sender = nullptr)
