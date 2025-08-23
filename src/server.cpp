@@ -1,11 +1,17 @@
 #include "server.h"
-#include "utils.h" // current_timestamp()
+#include "utils/common_utility.h"
 
 #include <iostream>
 #include <chrono>
 
-#include <proto/iquora.pb.h>
-#include <proto/iquora.grpc.pb.h>
+#include "proto/iquora.pb.h"
+#include <grpcpp/grpcpp.h>
+#include "proto/iquora.grpc.pb.h"
+
+using grpc::ServerContext;
+using grpc::Status;
+using grpc::StatusCode;
+using grpc::ServerWriter;
 
 IquoraServiceImpl::IquoraServiceImpl(std::shared_ptr<MemStore> memstore,
                                      std::shared_ptr<WAL> wal,
@@ -18,23 +24,25 @@ IquoraServiceImpl::IquoraServiceImpl(std::shared_ptr<MemStore> memstore,
       lifecycle_(std::move(lifecycle)),
       pool_(std::move(pool)) {}
 
-Status IquoraServiceImpl::GetState(ServerContext* /*context*/, const iquora::GetRequest* req,
-                                   iquora::GetResponse* resp) {
+Status IquoraServiceImpl::Get(ServerContext* context, 
+                                const iquora::GetRequest* req,
+                                iquora::GetResponse* resp) {
     auto val = memstore_->get(req->actor_id(), req->key());
-    if (!val.has_value()) {
-        // return empty string as not found (could return NOT_FOUND if you prefer)
-        resp->set_value("");
-        return Status::OK;
+
+    if (val.has_value()) {
+        resp->set_value(*val);
+        resp->set_found(true);
+    } else {
+        resp->set_found(false);
     }
-    resp->set_value(*val);
     return Status::OK;
 }
 
-Status IquoraServiceImpl::SetState(ServerContext* /*context*/, const iquora::SetRequest* req,
-                                   iquora::SetResponse* resp) {
-    // 1) Update in-memory store
-    bool ok = memstore_->set(req->actor_id(), req->key(), req->value());
-    if (!ok) {
+Status IquoraServiceImpl::Set(ServerContext* context, 
+                                const iquora::SetRequest* req,
+                                iquora::SetResponse* resp) {
+    bool success = memstore_->set(req->actor_id(), req->key(), req->value());     // 1) Update in-memory store
+    if (!success) {
         resp->set_success(false);
         return Status::OK;
     }
@@ -109,16 +117,21 @@ void IquoraServiceImpl::remove_callback(const std::string& actor_id, size_t cb_i
     // (ThreadSafeList likely provides a size() or is_empty() method — adapt if present)
 }
 
-Status IquoraServiceImpl::SubscribeChanges(ServerContext* context, const iquora::SubscribeRequest* req,
-                                           ServerWriter<iquora::StateChange>* writer) {
+Status IquoraServiceImpl::Subscribe(ServerContext* context, 
+                                        const iquora::SubscribeRequest* req,
+                                        ServerWriter<iquora::StateChange>* writer) {
     const std::string actor = req->actor_id();
 
+    if (!lifecycle_->IsActorActive(actor)) {
+        return grpc::Status(StatusCode::NOT_FOUND, "Actor not found or inactive");
+    }
+
     // Queue to receive messages for this client
-    ThreadSafeQueue<iquora::StateChange> inbound;
+    BoundedThreadsafeQueue<iquora::StateChange> inbound;
 
     // Create callback that pushes msg into inbound queue
     auto cb = [&inbound](const iquora::StateChange& msg) {
-        inbound.push(msg);
+        inbound.Push(msg);
     };
 
     // Register callback in subscription list and keep returned id for removal
@@ -128,8 +141,8 @@ Status IquoraServiceImpl::SubscribeChanges(ServerContext* context, const iquora:
     // Stream loop: block on inbound queue and write to client, exit on client cancellation
     while (!context->IsCancelled()) {
         iquora::StateChange msg;
-        bool ok = inbound.pop_wait(msg, std::chrono::milliseconds(500)); // wait up to 500ms
-        if (!ok) {
+        bool success = inbound.WaitAndPop(msg, std::chrono::milliseconds(500)); // wait up to 500ms
+        if (!success) {
             // timed out, check cancellation again
             continue;
         }
@@ -142,5 +155,37 @@ Status IquoraServiceImpl::SubscribeChanges(ServerContext* context, const iquora:
     // cleanup callback
     remove_callback(actor, cb_id);
 
+    return Status::OK;
+}
+
+Status IquoraServiceImpl::SpawnActor(ServerContext* context,
+                                        const iquora::SpawnActorRequest* req,
+                                        iquora::SpawnActorResponse* res) {
+    // Convert protobuf map to unordered_map
+    std::unordered_map<std::string, std::string> initial_state;
+    for (const auto& [key, value] : req->initial_state()) {
+        initial_state[key] = value;
+    }
+    
+    bool success = lifecycle_->SpawnActor(request->actor_id(), initial_state);
+    response->set_success(success);
+    
+    if (!success) {
+        response->set_error_message("Failed to spawn actor");
+    }
+    
+    return Status::OK;
+}
+
+Status IquoraServiceImpl::TerminateActor(ServerContext* context,
+                                            const iquora::TerminateActorRequest* request,
+                                            iquora::TerminateActorResponse* response) {
+    bool success = lifecycle_->TerminateActor(request->actor_id(), request->force());
+    response->set_success(success);
+    
+    if (!success) {
+        response->set_error_message("Failed to terminate actor");
+    }
+    
     return Status::OK;
 }

@@ -5,19 +5,11 @@
 #include <string>
 using namespace std;
 
-// class PubSub {
-// public:
-//     using Callback = function<void(const string&, const string&, const string&)>;
-//     void subscribe(const string& actor_id, Callback cb);
-//     void publish(const string& actor_id, const string& key, const string& value);
-// private:
-//     unordered_map<string, vector<Callback>> subs_;
-// };
 
 #ifndef SUBSCRIPTION_SYSTEM_H
 #define SUBSCRIPTION_SYSTEM_H
 
-#include "threadsafe_list.h"
+#include "utils/threadsafe_list.h"
 #include <functional>
 #include <memory>
 #include <mutex>

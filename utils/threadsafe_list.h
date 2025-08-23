@@ -3,15 +3,16 @@
 
 #include <memory>
 #include <mutex>
+#include <atomic>    
+#include <cstddef>     
 #include <functional>
-using namespace std;
 
 /*
 A threadsafe linked list, particularly useful because it support iteration.
 */
 
 template <typename T>
-class threadsafe_list
+class ThreadSafeList
 {
     struct node
     {
@@ -26,7 +27,7 @@ class threadsafe_list
     };
 
     node head;
-    atomic<size_t> size_{0};
+    std::atomic<size_t> size_{0};
 
 public:
     threadsafe_list(){}

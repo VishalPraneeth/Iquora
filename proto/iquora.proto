@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package iquora;
+
+service StateStore {
+    rpc Get(GetRequest) returns (GetResponse);
+    rpc Set(SetRequest) returns (SetResponse);
+    rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+    rpc SpawnActor(SpawnActorRequest) returns (SpawnActorResponse);
+    rpc TerminateActor(TerminateActorRequest) returns (TerminateActorResponse);
+}
+
+message GetRequest {
+    string actor_id = 1;
+    string key = 2;
+}
+
+message GetResponse {
+    string value = 1;
+    bool found = 2;
+}
+
+message SetRequest {
+    string actor_id = 1;
+    string key = 2;
+    string value = 3;
+}
+
+message SetResponse {
+    bool success = 1;
+}
+
+message SubscribeRequest {
+  string actor_id = 1;
+}
+
+message SpawnActorRequest {
+  string actor_id = 1;
+  map<string, string> initial_state = 2;
+}
+
+message SpawnActorResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message TerminateActorRequest {
+  string actor_id = 1;
+  bool force = 2;
+}
+
+message TerminateActorResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message SubscribeResponse {
+    string actor_id = 1;
+    string key = 2;
+    string value = 3;
+    string event_type = 4; // CREATED, UPDATED, DELETED
+}

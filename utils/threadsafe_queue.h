@@ -13,44 +13,47 @@ using namespace std;
 template <typename T>
 class BoundedThreadsafeQueue
 {
+public:
+    enum class OverflowPolicy { Block, DropNewest, DropOldest, Compact };
+
 private:
     struct Node
     {
-        shared_ptr<T> data;
-        unique_ptr<Node> next;
+        std::shared_ptr<T> data;
+        std::unique_ptr<Node> next;
     };
 
     mutable mutex head_mutex_;
-    unique_ptr<Node> head_;
+    std::unique_ptr<Node> head_;
     mutable mutex tail_mutex_;
     Node *tail_;
-    condition_variable data_cond;
+    std::condition_variable data_cond;
+    std::condition_variable space_cond;
+
     uint32_t max_size_;
-    atomic<uint32_t> size_{0};
+    std::atomic<uint32_t> size_{0};
+    OverflowPolicy policy_;
 
 private:
     Node *GetTail();
-    unique_ptr<Node> PopHead();
-    unique_ptr<Node> TryPopHead();
-    unique_lock<mutex> WaitForData();
-    unique_ptr<Node> WaitPopHead();
+    std::unique_ptr<Node> PopHead();
+    std::unique_ptr<Node> TryPopHead();
+    std::unique_lock<mutex> WaitForData();
+    std::unique_ptr<Node> WaitPopHead();
 
 public:
-    BoundedThreadsafeQueue() 
+    BoundedThreadsafeQueue(uint32_t max_size = std::numeric_limits<uint32_t>::max(),
+                           OverflowPolicy policy = OverflowPolicy::Block)
         : head_(new Node), tail_(head_.get()),
-          max_size_(std::numeric_limits<uint32_t>::max()) {}
-
-    explicit BoundedThreadsafeQueue(uint32_t max_size)
-        : head_(new Node), tail_(head_.get()),
-          max_size_(max_size) {}
+          max_size_(max_size), policy_(policy) {}
 
     BoundedThreadsafeQueue(const BoundedThreadsafeQueue&) = delete;
-
     BoundedThreadsafeQueue& operator=(const BoundedThreadsafeQueue&) = delete;
 
-    shared_ptr<T> TryPop();
+    std::shared_ptr<T> TryPop();
     bool TryPop(T &value);
-    shared_ptr<T> WaitAndPop();
+    std::shared_ptr<T> WaitAndPop();
+    bool WaitAndPop(T &value, std::chrono::milliseconds timeout);
     void WaitAndPop(T &value);
     void Push(T new_value);
     bool Empty();

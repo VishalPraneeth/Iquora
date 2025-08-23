@@ -4,6 +4,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <string>
 #include <mutex>
 
 class SubscriptionSystem

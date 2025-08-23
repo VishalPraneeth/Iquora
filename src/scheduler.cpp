@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include <thread_pool.h>
 
 Scheduler::Scheduler(std::unique_ptr<ThreadPool<>> poolPtr_) : poolPtr(std::move(poolPtr_)), work_queues(), done(false)
 {

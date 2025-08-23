@@ -1,10 +1,13 @@
 #pragma once
 #include <thread>
+#include <string>
+#include <vector>
+#include <mutex>
 #include <atomic>
-#include "mem_store.h"
-#include "wal.h"
-#include <utils/threadsafe_queue.h>
-using namespace std;
+#include "utils/threadsafe_queue.h"
+
+class MemStore;   // forward declare
+class WAL;        // forward declare
 
 class WriteBehindWorker
 {
@@ -27,12 +30,12 @@ private:
     void run();
     void process_batch();
 
-    thread worker_;
-    atomic<bool> running_{false};
+    std::thread worker_;
+    std::atomic<bool> running_{false};
     MemStore &store_;
     WAL &wal_;
     BoundedThreadsafeQueue<DirtyRecord> dirty_queue_;
     size_t batch_size_;
-    mutex batch_mutex_;
-    vector<DirtyRecord> current_batch_;
+    std::mutex batch_mutex_;
+    std::vector<DirtyRecord> current_batch_;
 };

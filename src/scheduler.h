@@ -35,7 +35,7 @@ public:
 
 private:
     void Schedule();
-    threadsafe_list<BoundedThreadsafeQueue<std::unique_ptr<Callable>> *> work_queues;
+    ThreadSafeList<BoundedThreadsafeQueue<std::unique_ptr<Callable>> *> work_queues;
     std::unique_ptr<ThreadPool<>> poolPtr;
     std::atomic<bool> done;
 };

@@ -1,5 +1,4 @@
 #pragma once
-
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -7,7 +6,7 @@
 #include <mutex>
 
 #include <grpcpp/grpcpp.h>
-#include "iquora.grpc.pb.h"
+#include "proto/iquora.grpc.pb.h"
 
 #include "mem_store.h"
 #include "wal.h"
@@ -15,9 +14,9 @@
 #include "actor_lifecycle.h"
 
 // Your utility containers
-#include <utils/threadsafe_queue.h>
-#include <utils/threadsafe_list.h>
-#include <utils/thread_pool.h>
+#include "utils/threadsafe_queue.h"
+#include "utils/threadsafe_list.h"
+#include "utils/thread_pool.h"
 
 using grpc::ServerContext;
 using grpc::Status;
@@ -32,14 +31,25 @@ public:
                       std::shared_ptr<ThreadPool> pool);
 
     // gRPC methods
-    Status GetState(ServerContext* context, const iquora::GetRequest* req,
-                    iquora::GetResponse* resp) override;
+    Status Get(ServerContext* context, 
+                const iquora::GetRequest* req,
+                iquora::GetResponse* resp) override;
 
-    Status SetState(ServerContext* context, const iquora::SetRequest* req,
-                    iquora::SetResponse* resp) override;
+    Status Set(ServerContext* context, 
+                const iquora::SetRequest* req,
+                iquora::SetResponse* resp) override;
 
-    Status SubscribeChanges(ServerContext* context, const iquora::SubscribeRequest* req,
-                            ServerWriter<iquora::StateChange>* writer) override;
+    Status Subscribe(ServerContext* context, 
+                        const iquora::SubscribeRequest* req,
+                        ServerWriter<iquora::StateChange>* writer) override;
+
+    Status SpawnActor(ServerContext* context,
+                        const iquora::SpawnActorRequest* req,
+                        iquora::SpawnActorResponse* res) override;
+    
+    Status TerminateActor(ServerContext* context,
+                              const iquora::TerminateActorRequest* req,
+                              iquora::TerminateActorResponse* res) override;
 
     // programmatic helpers
     void publish_change(const std::string& actor_id,
