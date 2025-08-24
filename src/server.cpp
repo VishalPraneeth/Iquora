@@ -17,12 +17,12 @@ IquoraServiceImpl::IquoraServiceImpl(std::shared_ptr<MemStore> memstore,
                                      std::shared_ptr<WAL> wal,
                                      std::shared_ptr<WriteBehindWorker> wb,
                                      std::shared_ptr<ActorLifecycle> lifecycle,
-                                     std::shared_ptr<ThreadPool> pool)
+                                     std::shared_ptr<ThreadPool<>> pool)
     : memstore_(std::move(memstore)),
       wal_(std::move(wal)),
       writebehind_(std::move(wb)),
       lifecycle_(std::move(lifecycle)),
-      pool_(std::move(pool)) {}
+      pool_(pool ? std::move(pool) : std::make_shared<ThreadPool<>>()) {}
 
 Status IquoraServiceImpl::Get(ServerContext* context, 
                                 const iquora::GetRequest* req,
@@ -70,7 +70,7 @@ void IquoraServiceImpl::publish_change(const std::string& actor_id,
                                        const std::string& value,
                                        const std::string& event_type) {
     // Build the StateChange message
-    iquora::StateChange msg;
+    iquora::SubscribeResponse msg;
     msg.set_actor_id(actor_id);
     msg.set_key(key);
     msg.set_value(value);
@@ -119,7 +119,7 @@ void IquoraServiceImpl::remove_callback(const std::string& actor_id, size_t cb_i
 
 Status IquoraServiceImpl::Subscribe(ServerContext* context, 
                                         const iquora::SubscribeRequest* req,
-                                        ServerWriter<iquora::StateChange>* writer) {
+                                        ServerWriter<iquora::SubscribeResponse>* writer) {
     const std::string actor = req->actor_id();
 
     if (!lifecycle_->IsActorActive(actor)) {
@@ -127,10 +127,10 @@ Status IquoraServiceImpl::Subscribe(ServerContext* context,
     }
 
     // Queue to receive messages for this client
-    BoundedThreadsafeQueue<iquora::StateChange> inbound;
+    BoundedThreadsafeQueue<iquora::SubscribeResponse> inbound;
 
     // Create callback that pushes msg into inbound queue
-    auto cb = [&inbound](const iquora::StateChange& msg) {
+    auto cb = [&inbound](const iquora::SubscribeResponse& msg) {
         inbound.Push(msg);
     };
 
@@ -140,7 +140,7 @@ Status IquoraServiceImpl::Subscribe(ServerContext* context,
 
     // Stream loop: block on inbound queue and write to client, exit on client cancellation
     while (!context->IsCancelled()) {
-        iquora::StateChange msg;
+        iquora::SubscribeResponse msg;
         bool success = inbound.WaitAndPop(msg, std::chrono::milliseconds(500)); // wait up to 500ms
         if (!success) {
             // timed out, check cancellation again

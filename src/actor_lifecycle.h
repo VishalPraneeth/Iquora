@@ -48,14 +48,4 @@ private:
     
     void ExecuteHookSafely(LifecycleCallback hook, const std::string& actor_id);
     bool ValidateActorId(const std::string& actor_id) const;
-
-    // void spawn(const std::std::string& actor_id) {
-    //     cout << "[ActorLifecycle] Actor spawned: " << actor_id << "\n";
-    // }
-    // void terminate(const std::string& actor_id) {
-    //     cout << "[ActorLifecycle] Actor terminated: " << actor_id << "\n";
-    // }
-    // void migrate(const std::string& actor_id, const std::string& node) {
-    //     cout << "[ActorLifecycle] Actor " << actor_id << " migrated to node " << node << "\n";
-    // }
 };

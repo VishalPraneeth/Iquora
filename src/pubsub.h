@@ -47,7 +47,7 @@ private:
         size_t size() const;
 
     private:
-        threadsafe_list<CallbackWrapper> callbacks_;
+        ThreadSafeList<CallbackWrapper> callbacks_;
         std::atomic<SubID> next_id_{1};
     };
 

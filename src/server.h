@@ -28,7 +28,7 @@ public:
                       std::shared_ptr<WAL> wal,
                       std::shared_ptr<WriteBehindWorker> wb,
                       std::shared_ptr<ActorLifecycle> lifecycle,
-                      std::shared_ptr<ThreadPool> pool);
+                      std::shared_ptr<ThreadPool<>> pool);
 
     // gRPC methods
     Status Get(ServerContext* context, 
@@ -41,7 +41,7 @@ public:
 
     Status Subscribe(ServerContext* context, 
                         const iquora::SubscribeRequest* req,
-                        ServerWriter<iquora::StateChange>* writer) override;
+                        ServerWriter<iquora::SubscribeResponse>* writer) override;
 
     Status SpawnActor(ServerContext* context,
                         const iquora::SpawnActorRequest* req,
@@ -59,7 +59,7 @@ public:
 
 private:
     // subscription callback signature
-    using SubCallback = std::function<void(const iquora::StateChange&)>;
+    using SubCallback = std::function<void(const iquora::SubscribeResponse&)>;
 
     // A small subscription manager using a threadsafe map + threadsafe_list of callbacks
     struct SubscriptionList {
@@ -77,7 +77,7 @@ private:
     std::shared_ptr<WAL> wal_;
     std::shared_ptr<WriteBehindWorker> writebehind_;
     std::shared_ptr<ActorLifecycle> lifecycle_;
-    std::shared_ptr<ThreadPool> pool_;
+    std::shared_ptr<ThreadPool<>> pool_;
 
     // actor_id -> SubscriptionList
     std::mutex subs_map_mutex_;

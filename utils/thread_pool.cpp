@@ -2,7 +2,7 @@
 using namespace std;
 
 template <typename Iterable>
-ThreadPool<Iterable>::ThreadPool() : done(false), joiner(threads)
+ThreadPool<Iterable>::ThreadPool(size_t thread_count) : done(false), joiner(threads)
 {
     unsigned const thread_count = thread::hardware_concurrency();
     try
