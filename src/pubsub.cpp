@@ -1,5 +1,5 @@
 #include "pubsub.h"
-#include "threadsafe_list.h"
+#include "utils/threadsafe_list.h"
 #include <unordered_map>
 #include <atomic>
 #include <functional>
@@ -25,7 +25,7 @@ private:
 
     class SubscriptionList
     {
-        threadsafe_list<CallbackWrapper> callbacks_;
+        ThreadSafeList<CallbackWrapper> callbacks_;
         std::atomic<SubID> next_id_{1};
 
     public:

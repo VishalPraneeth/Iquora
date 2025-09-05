@@ -24,6 +24,15 @@ using grpc::ServerWriter;
 
 class IquoraServiceImpl final : public iquora::StateStore::Service {
 public:
+    // Factory function for easy creation
+    static std::shared_ptr<IquoraServiceImpl> Create(
+        std::shared_ptr<MemStore> memstore = nullptr,
+        std::shared_ptr<WAL> wal = nullptr,
+        std::shared_ptr<WriteBehindWorker> wb = nullptr,
+        std::shared_ptr<ActorLifecycle> lifecycle = nullptr,
+        std::shared_ptr<ThreadPool<>> pool = nullptr);
+
+    // Constructor
     IquoraServiceImpl(std::shared_ptr<MemStore> memstore,
                       std::shared_ptr<WAL> wal,
                       std::shared_ptr<WriteBehindWorker> wb,

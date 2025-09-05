@@ -1,9 +1,10 @@
 #ifndef ABSTRACT_ACTOR_H_
 #define ABSTRACT_ACTOR_H_
 
-#include <utils/threadsafe_queue.h>
-#include <utils/thread_pool.h>
+#include "utils/threadsafe_queue.h"
+#include "utils/thread_pool.h"
 #include "actor_system.h"
+#include "mem_store.h"
 
 #include <queue>
 #include <future>
@@ -12,15 +13,27 @@
 #include <memory>
 #include <functional>
 
+// Abstract actor is the functionality which handles Behaviour, Implementation of Actors, majorly the state logic(like OnMessage,etc)
+
 template <typename MessageType, typename ResultType>
 class AbstractActor
 {
 public:
     AbstractActor() = default;
-    AbstractActor(ActorSystem *system_) { system = system_; }
+    AbstractActor(ActorSystem *system_, const std::string& actor_id, MemStore* store) : system_(system), actor_id_(actor_id), store_(store) {}
+
+    // Load state from persistence on creation
+    virtual void Initialize() {
+        if (store_) {
+            LoadStateFromStore();
+        }
+    }
     virtual ~AbstractActor() {}
     /* Actor behaviour */
-    virtual void OnMessageReceived(MessageType &&msg, AbstractActor *sender = nullptr) = 0;
+    virtual void OnMessageReceived(MessageType &&msg, AbstractActor *sender = nullptr){
+        ProcessMessage(msg);
+        PersistState(); // Auto-persist after each message;
+    }
     virtual ResultType OnMessageReceivedWithResult(MessageType msg, AbstractActor *sender = nullptr) = 0;
 
     /* Actor interface */
@@ -52,9 +65,17 @@ public:
     uint32_t GetQueueSize() { return queue.GetSize(); };
     BoundedThreadsafeQueue<std::unique_ptr<Callable>> *GetQueueRef() { return &queue; };
 
+    
+protected:
+    virtual void LoadStateFromStore() = 0;
+    virtual void PersistState() = 0;
+    
+    std::string actor_id_;
+    MemStore* store_;
+    ActorSystem* system_;
+
 private:
     BoundedThreadsafeQueue<std::unique_ptr<Callable>> queue;
-    ActorSystem *system;
 };
 
 #endif // ABSTRACT_ACTOR_H_

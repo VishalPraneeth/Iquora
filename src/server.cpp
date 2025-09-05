@@ -13,16 +13,40 @@ using grpc::Status;
 using grpc::StatusCode;
 using grpc::ServerWriter;
 
-IquoraServiceImpl::IquoraServiceImpl(std::shared_ptr<MemStore> memstore,
-                                     std::shared_ptr<WAL> wal,
-                                     std::shared_ptr<WriteBehindWorker> wb,
-                                     std::shared_ptr<ActorLifecycle> lifecycle,
-                                     std::shared_ptr<ThreadPool<>> pool)
+IquoraServiceImpl::IquoraServiceImpl(
+    std::shared_ptr<MemStore> memstore,
+    std::shared_ptr<WAL> wal,
+    std::shared_ptr<WriteBehindWorker> wb,
+    std::shared_ptr<ActorLifecycle> lifecycle,
+    std::shared_ptr<ThreadPool<>> pool)
     : memstore_(std::move(memstore)),
       wal_(std::move(wal)),
       writebehind_(std::move(wb)),
       lifecycle_(std::move(lifecycle)),
-      pool_(pool ? std::move(pool) : std::make_shared<ThreadPool<>>()) {}
+      pool_(std::move(pool)) {}
+
+std::shared_ptr<IquoraServiceImpl> IquoraServiceImpl::Create(
+    std::shared_ptr<MemStore> memstore,
+    std::shared_ptr<WAL> wal,
+    std::shared_ptr<WriteBehindWorker> wb,
+    std::shared_ptr<ActorLifecycle> lifecycle,
+    std::shared_ptr<ThreadPool<>> pool) {
+    
+    // Create default pointers if not provided
+    if (!memstore) memstore = std::make_shared<MemStore>();
+    if (!wal) wal = std::make_shared<WAL>();
+    if (!pool) pool = std::make_shared<ThreadPool<>>();
+    if (!lifecycle) lifecycle = std::make_shared<ActorLifecycle>(memstore);    
+    if (!wb) wb = std::make_shared<WriteBehindWorker>(*memstore, *wal);
+    
+    return std::make_shared<IquoraServiceImpl>(
+        std::move(memstore),
+        std::move(wal),
+        std::move(wb),
+        std::move(lifecycle),
+        std::move(pool)
+    );
+}
 
 Status IquoraServiceImpl::Get(ServerContext* context, 
                                 const iquora::GetRequest* req,
@@ -48,10 +72,8 @@ Status IquoraServiceImpl::Set(ServerContext* context,
     }
 
     // 2) Append to WAL synchronously (write-behind strategy: we still append here for durability)
-    //    Simple newline-delimited JSON-ish record for starter: actor_id|key|value|ts
-    std::string record = req->actor_id() + "|" + req->key() + "|" + req->value() + "|" + current_timestamp();
     try {
-        wal_->append(record);
+        wal_->append(req->actor_id(), req->key(), req->value());
     } catch (const std::exception& ex) {
         // log and continue (depending on durability settings you might want to fail)
         std::cerr << "[SetState] WAL append failed: " << ex.what() << std::endl;
@@ -112,7 +134,7 @@ void IquoraServiceImpl::remove_callback(const std::string& actor_id, size_t cb_i
     std::lock_guard<std::mutex> lg(subs_map_mutex_);
     auto it = subs_map_.find(actor_id);
     if (it == subs_map_.end()) return;
-    it->second->callbacks.remove(cb_id);
+    it->second->callbacks.remove_first_if(cb_id);
     // optional: if list empty, erase map entry
     // (ThreadSafeList likely provides a size() or is_empty() method — adapt if present)
 }
