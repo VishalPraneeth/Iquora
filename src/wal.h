@@ -35,7 +35,7 @@ private:
     std::ofstream wal_file_;
     size_t max_size_bytes_;
     uint64_t seq_counter_ = 0;
-    mutex mutex_;
+    std::mutex mutex_;
 
     void notify_handler(const Entry& entry);
     void open_log();

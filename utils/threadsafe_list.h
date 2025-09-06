@@ -28,6 +28,7 @@ class ThreadSafeList
 
     node head;
     std::atomic<size_t> size_{0};
+    std::atomic<size_t> next_id_{1};  // ID generator
 
 public:
     threadsafe_list(){}
@@ -131,6 +132,46 @@ public:
             current = next;
             lk = move(next_lk);
         }
+    }
+
+    size_t add(T const &value)
+    {
+        size_t new_id = next_id_++;
+        unique_ptr<node> new_node(new node(value, new_id));
+        lock_guard<mutex> lk(head.m);
+        new_node->next = move(head.next);
+        if (head.next) {
+            head.next->prev = new_node.get();
+        }
+        new_node->prev = &head;
+        head.next = std::move(new_node);
+        size_++;
+        return new_id;
+    }
+
+    bool remove_by_id(size_t id)
+    {
+        node *current = &head;
+        unique_lock<mutex> lk(head.m);
+        while (node *const next = current->next.get())
+        {
+            unique_lock<mutex> next_lk(next->m);
+            if (next->id == id)  // Check ID match
+            {
+                unique_ptr<node> old_next = move(current->next);
+                if (old_next->next) {
+                    old_next->next->prev = current;
+                }
+                current->next = move(old_next->next);
+                next_lk.unlock();
+                size_--;
+                return true;
+            }
+            lk.unlock();
+            current = next;
+            lk = move(next_lk);
+        }
+        return false;
     }
 
     size_t size() const noexcept { return size_; }

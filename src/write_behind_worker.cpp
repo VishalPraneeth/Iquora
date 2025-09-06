@@ -1,4 +1,5 @@
 #include "write_behind_worker.h"
+#include "wal.h"
 #include <chrono>
 #include <iostream>
 using namespace std;
@@ -81,13 +82,17 @@ void WriteBehindWorker::process_batch()
 
     if (!batch.empty())
     {
-        // Batch write to WAL
-        for (const auto &record : batch)
-        {
-            wal_.append(record.actor_id, record.key, record.value);
-        }
+        try { // Batch write to WAL
+            for (const auto &record : batch)
+            {
+                wal_.append(record.actor_id, record.key, record.value);
+            }
 
-        // Optional: Batch persist to disk/database
-        std::cout << "[WriteBehind] Processed batch of " << batch.size() << " records\n";
+            // Optional: Batch persist to disk/database
+            std::cout << "[WriteBehind] Processed batch of " << batch.size() << " records\n";
+        } catch (const std::exception& ex){
+            std::cerr << "[WriteBehind] Error while flushing batch: " << ex.what() << "\n";
+            // TODO: retry logic or dead-letter queue
+        }
     }
 }

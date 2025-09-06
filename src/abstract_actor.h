@@ -65,7 +65,6 @@ public:
     uint32_t GetQueueSize() { return queue.GetSize(); };
     BoundedThreadsafeQueue<std::unique_ptr<Callable>> *GetQueueRef() { return &queue; };
 
-    
 protected:
     virtual void LoadStateFromStore() = 0;
     virtual void PersistState() = 0;

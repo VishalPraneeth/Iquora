@@ -92,11 +92,11 @@ void IquoraServiceImpl::publish_change(const std::string& actor_id,
                                        const std::string& value,
                                        const std::string& event_type) {
     // Build the StateChange message
-    iquora::SubscribeResponse msg;
-    msg.set_actor_id(actor_id);
-    msg.set_key(key);
-    msg.set_value(value);
-    msg.set_event_type(event_type);
+    auto msg = std::make_unique<iquora::SubscribeResponse>();
+    msg->set_actor_id(actor_id);
+    msg->set_key(key);
+    msg->set_value(value);
+    msg->set_event_type(event_type);
 
     // if we have subscribers, run callbacks in pool
     std::shared_ptr<SubscriptionList> list;
@@ -109,11 +109,11 @@ void IquoraServiceImpl::publish_change(const std::string& actor_id,
 
     // iterate the threadsafe list and invoke callbacks
     // ThreadSafeList is expected to have for_each or an iterator; I'll assume a for_each method.
-    list->callbacks.for_each([msg](const SubCallback& cb) {
+    list->callbacks.for_each([&msg](const SubCallback& cb) {
         // schedule on user threadpool to avoid blocking publisher
         // capture message by value; we could move into lambda if necessary
         try {
-            cb(msg);
+            cb(*msg);
         } catch (...) {
             // swallow callback exceptions to keep publisher robust
         }
@@ -149,11 +149,12 @@ Status IquoraServiceImpl::Subscribe(ServerContext* context,
     }
 
     // Queue to receive messages for this client
-    BoundedThreadsafeQueue<iquora::SubscribeResponse> inbound;
+    BoundedThreadsafeQueue<std::shared_ptr<iquora::SubscribeResponse>> inbound;
 
     // Create callback that pushes msg into inbound queue
     auto cb = [&inbound](const iquora::SubscribeResponse& msg) {
-        inbound.Push(msg);
+        auto msg_copy = std::make_shared<iquora::SubscribeResponse>(msg);
+        inbound.Push(msg_copy);
     };
 
     // Register callback in subscription list and keep returned id for removal
@@ -162,14 +163,14 @@ Status IquoraServiceImpl::Subscribe(ServerContext* context,
 
     // Stream loop: block on inbound queue and write to client, exit on client cancellation
     while (!context->IsCancelled()) {
-        iquora::SubscribeResponse msg;
+        auto msg = std::make_shared<iquora::SubscribeResponse>();
         bool success = inbound.WaitAndPop(msg, std::chrono::milliseconds(500)); // wait up to 500ms
         if (!success) {
             // timed out, check cancellation again
             continue;
         }
         // Write to the stream; if client disconnected, break
-        if (!writer->Write(msg)) {
+        if (!writer->Write(*msg)) {
             break;
         }
     }
@@ -189,11 +190,11 @@ Status IquoraServiceImpl::SpawnActor(ServerContext* context,
         initial_state[key] = value;
     }
     
-    bool success = lifecycle_->SpawnActor(request->actor_id(), initial_state);
-    response->set_success(success);
+    bool success = lifecycle_->SpawnActor(req->actor_id(), initial_state);
+    res->set_success(success);
     
     if (!success) {
-        response->set_error_message("Failed to spawn actor");
+        res->set_error_message("Failed to spawn actor");
     }
     
     return Status::OK;
