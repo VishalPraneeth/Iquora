@@ -7,9 +7,14 @@
 #include <exception>
 #include <iostream>
 #include <atomic>
+#include <deque>
 #include <limits>
 using namespace std;
 
+// BoundedThreadsafeQueue<T>
+// - Single mutex to avoid deadlocks.
+// - Supports OverflowPolicy: Block, DropNewest, DropOldest, Compact.
+// - Provides Push, WaitAndPop(with timeout), TryPopNonBlocking, Size, Empty.
 template <typename T>
 class BoundedThreadsafeQueue
 {
@@ -17,35 +22,20 @@ public:
     enum class OverflowPolicy { Block, DropNewest, DropOldest, Compact };
 
 private:
-    struct Node
-    {
-        std::shared_ptr<T> data;
-        std::unique_ptr<Node> next;
-    };
-
-    mutable mutex head_mutex_;
-    std::unique_ptr<Node> head_;
-    mutable mutex tail_mutex_;
-    Node *tail_;
+    mutable std::mutex mu_;
     std::condition_variable data_cond;
     std::condition_variable space_cond;
 
-    uint32_t max_size_;
-    std::atomic<uint32_t> size_{0};
+    size_t max_size_;
+    std::atomic<size_t> size_{0};
     OverflowPolicy policy_;
-
-private:
-    Node *GetTail();
-    std::unique_ptr<Node> PopHead();
-    std::unique_ptr<Node> TryPopHead();
-    std::unique_lock<mutex> WaitForData();
-    std::unique_ptr<Node> WaitPopHead();
+    std::deque<T> queue_;
+    bool stopped_;
 
 public:
-    BoundedThreadsafeQueue(uint32_t max_size = std::numeric_limits<uint32_t>::max(),
+    explicit BoundedThreadsafeQueue(uint32_t max_size = std::numeric_limits<uint32_t>::max(),
                            OverflowPolicy policy = OverflowPolicy::Block)
-        : head_(new Node), tail_(head_.get()),
-          max_size_(max_size), policy_(policy) {}
+        : max_size_(max_size), policy_(policy) {}
 
     BoundedThreadsafeQueue(const BoundedThreadsafeQueue&) = delete;
     BoundedThreadsafeQueue& operator=(const BoundedThreadsafeQueue&) = delete;
@@ -54,7 +44,6 @@ public:
     bool TryPop(T &value);
     std::shared_ptr<T> WaitAndPop();
     bool WaitAndPop(T &value, std::chrono::milliseconds timeout);
-    void WaitAndPop(T &value);
     void Push(T new_value);
     bool Empty();
     uint32_t GetSize();

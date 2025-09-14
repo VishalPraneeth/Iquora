@@ -35,10 +35,13 @@ void WriteBehindWorker::stop()
 
 void WriteBehindWorker::run()
 {
+    auto last_flush = std::chrono::steady_clock::now();
+    auto flush_interval = std::chrono::milliseconds(500); // configurable
+
     while (running_)
     {
-
         DirtyRecord record;
+
         if (dirty_queue_.WaitAndPop(record, std::chrono::milliseconds(100)))
         {
             lock_guard<mutex> lock(batch_mutex_);
@@ -47,16 +50,14 @@ void WriteBehindWorker::run()
             if (current_batch_.size() >= batch_size_)
             {
                 process_batch();
+                last_flush = std::chrono::steady_clock::now();
             }
         }
-        else
-        {
-            if (!running_)  break;
+        auto now = std::chrono::steady_clock::now();
 
-            if (!current_batch_.empty())
-            {
-                process_batch();
-            }
+        if (now - last_flush >= flush_interval && !current_batch_.empty()) {
+            process_batch();
+            last_flush = now;
         }
     }
 }
