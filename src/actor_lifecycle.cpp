@@ -16,7 +16,7 @@ bool ActorLifecycle::ValidateActorId(const std::string& actor_id) const {
 }
 
 bool ActorLifecycle::SpawnActor(const std::string& actor_id,
-                              const std::unordered_map<std::string, std::string>& initial_state) {
+                              const std::unordered_map<std::string, std::string>& initial_state = {}) {
     if (!ValidateActorId(actor_id)) {
         return false;
     }
@@ -33,12 +33,14 @@ bool ActorLifecycle::SpawnActor(const std::string& actor_id,
     
     try {
         // Initialize actor state
-        for (const auto& [key, value] : initial_state) {
+        if (store_ && !initial_state.empty()) {
+            for (const auto& [key, value] : initial_state) {
             store_->set(actor_id, key, value);
+            }
         }
         
         // Mark actor as active
-        active_actors_[actor_id] = true;
+        active_actors_.insert(actor_id);
         
         // Execute post-spawn hook
         ExecuteHookSafely(post_spawn_hook_, actor_id);
@@ -50,11 +52,10 @@ bool ActorLifecycle::SpawnActor(const std::string& actor_id,
     }
 }
 
-bool ActorLifecycle::TerminateActor(const std::string& actor_id, bool force) {
+bool ActorLifecycle::TerminateActor(const std::string& actor_id, bool force = false) {
     std::lock_guard<std::mutex> lock(mutex_);
     
-    auto it = active_actors_.find(actor_id);
-    if (it == active_actors_.end()) {
+    if (active_actors_.find(actor_id) == active_actors_.end()) {
         return false;
     }
     
@@ -63,13 +64,13 @@ bool ActorLifecycle::TerminateActor(const std::string& actor_id, bool force) {
     
     try {
         // Optionally: Clear actor state (if not force, might want to preserve)
-        if (force) {
+        if (force && store_) {
             // Clear all keys for this actor
             // This would require additional methods in MemStore
         }
         
         // Mark actor as inactive
-        active_actors_.erase(it);
+        active_actors_.erase(actor_id);
         
         // Execute post-terminate hook
         ExecuteHookSafely(post_terminate_hook_, actor_id);
@@ -87,8 +88,7 @@ bool ActorLifecycle::ActorExists(const std::string& actor_id) const {
 
 bool ActorLifecycle::IsActorActive(const std::string& actor_id) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = active_actors_.find(actor_id);
-    return it != active_actors_.end() && it->second;
+    return active_actors_.find(actor_id) != active_actors_.end();   
 }
 
 void ActorLifecycle::RegisterPreSpawnHook(LifecycleCallback hook) {
@@ -128,14 +128,6 @@ size_t ActorLifecycle::GetActiveActorCount() const {
 
 std::vector<std::string> ActorLifecycle::GetActiveActors() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::string> actors;
-    actors.reserve(active_actors_.size());
-    
-    for (const auto& [actor_id, active] : active_actors_) {
-        if (active) {
-            actors.push_back(actor_id);
-        }
-    }
-    
-    return actors;
+    return std::vector<std::string>(active_actors_.begin(), active_actors_.end());
 }
+

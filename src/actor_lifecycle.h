@@ -1,13 +1,12 @@
 #pragma once
 #include <string>
 #include <iostream>
-#include <unordered_map>
+#include <unordered_set>
 #include<vector>
 #include<memory>
 #include<mutex>
 #include<functional>
 #include "mem_store.h" 
-using namespace std;
 
 class ActorLifecycle {
 public:
@@ -35,10 +34,14 @@ public:
     size_t GetActiveActorCount() const;
     std::vector<std::string> GetActiveActors() const;
 
+    std::shared_ptr<MemStore> GetStore() const {
+        return store_;
+    }
+
 private:
     std::shared_ptr<MemStore> store_;
     mutable std::mutex mutex_;
-    std::unordered_map<std::string, bool> active_actors_;
+    std::unordered_set<std::string> active_actors_;
 
     // Lifecycle hooks
     LifecycleCallback pre_spawn_hook_;
