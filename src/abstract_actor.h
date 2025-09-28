@@ -178,6 +178,7 @@ public:
     uint32_t GetQueueSize() const { return queue_.GetSize(); }
     bool IsInitialized() const { return is_initialized_; }
     bool IsProcessing() const { return is_processing_; }
+    BoundedThreadsafeQueue<std::unique_ptr<Callable>>* GetQueueRef() { return &queue_; }
 
 protected:
     // Pure virtual methods

@@ -30,7 +30,7 @@ private:
     std::atomic<size_t> size_{0};
     OverflowPolicy policy_;
     std::deque<T> queue_;
-    bool stopped_;
+    std::atomic<bool> stopped_{false};
 
 public:
     explicit BoundedThreadsafeQueue(uint32_t max_size = std::numeric_limits<uint32_t>::max(),
@@ -47,6 +47,15 @@ public:
     void Push(T new_value);
     bool Empty();
     uint32_t GetSize();
+
+    void Stop() {
+        stopped_.store(true);
+        data_cond.notify_all();
+        space_cond.notify_all();
+    }
+
+    bool IsStopped() const { return stopped_.load(); }
+
 };
 
 #include "threadsafe_queue.cpp" 
