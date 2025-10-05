@@ -2,7 +2,6 @@
 #include <mutex>
 #include<string>
 #include "utils/thread_pool.h"
-#include "thread_pool.h"
 
 MemStore::MemStore(std::shared_ptr<WAL> wal,
                   std::shared_ptr<ThreadPool<>> thread_pool, 
@@ -16,7 +15,7 @@ MemStore::MemStore(std::shared_ptr<WAL> wal,
         }
       }
 
-bool MemStore::set(const std::string& actor_id, const std::string& key, const std::string& value, std::optional<int> ttl_secs = std::nullopt) {
+bool MemStore::set(const std::string& actor_id, const std::string& key, const std::string& value, std::optional<int> ttl_secs) {
     // 1. Update store (synchronous)
     std::unique_lock lock(mutex_);
     auto& entry = store_[actor_id][key];

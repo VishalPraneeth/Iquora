@@ -80,7 +80,7 @@ public:
     void Stop() override {
         if (is_initialized_.exchange(false)) {
             is_processing_ = false;
-            queue_.Close();
+            queue_.Stop();
             
             if (processing_thread_.joinable()) {
                 processing_thread_.join();

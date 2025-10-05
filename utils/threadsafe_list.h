@@ -16,14 +16,14 @@ class ThreadSafeList
 {
     struct node
     {
-        mutex m;
-        shared_ptr<T> data;
-        unique_ptr<node> next;
+        std::mutex m;
+        std::shared_ptr<T> data;
+        std::unique_ptr<node> next;
         node* prev;  // previous pointer for easier removal
 
         node() : next(), prev(nullptr) {}
 
-        explicit node(T const &value) : data(make_shared<T>(value)), prev(nullptr) {}
+        explicit node(T const &value) : data(std::make_shared<T>(value)), prev(nullptr) {}
     };
 
     node head;
@@ -31,20 +31,20 @@ class ThreadSafeList
     std::atomic<size_t> next_id_{1};  // ID generator
 
 public:
-    threadsafe_list(){}
+    ThreadSafeList(){}
 
-    ~threadsafe_list() {
+    ~ThreadSafeList() {
         remove_if([](T const &) { return true; });  // remove node
     }
 
-    threadsafe_list(threadsafe_list const &) = delete;
-    threadsafe_list &operator=(threadsafe_list const &) = delete;
+    ThreadSafeList(ThreadSafeList const &) = delete;
+    ThreadSafeList &operator=(ThreadSafeList const &) = delete;
 
     void push_front(T const &value)
     {
-        unique_ptr<node> new_node(new node(value));
-        lock_guard<mutex> lk(head.m);
-        new_node->next = move(head.next);
+        std::unique_ptr<node> new_node(new node(value));
+        std::lock_guard<std::mutex> lk(head.m);
+        new_node->next = std::move(head.next);
         if (head.next) {
             head.next->prev = new_node.get();
         }
@@ -57,32 +57,32 @@ public:
     void for_each(Function f)
     {
         node *current = &head;
-        unique_lock<mutex> lk(head.m);
+        std::unique_lock<std::mutex> lk(head.m);
         while (node *const next = current->next.get())
         {
-            unique_lock<mutex> next_lk(next->m);
+            std::unique_lock<std::mutex> next_lk(next->m);
             lk.unlock();
             f(*next->data);
             current = next;
-            lk = move(next_lk);
+            lk = std::move(next_lk);
         }
     }
 
     template <typename Predicate>
-    shared_ptr<T> find_first_if(Predicate p)
+    std::shared_ptr<T> find_first_if(Predicate p)
     {
         node *current = &head;
-        unique_lock<mutex> lk(head.m);
+        std::unique_lock<std::mutex> lk(head.m);
         while (node *const next = current->next.get())
         {
-            unique_lock<mutex> next_lk(next->m);
+            std::unique_lock<std::mutex> next_lk(next->m);
             lk.unlock();
             if (p(*next->data))
             {
                 return next->data;
             }
             current = next;
-            lk = move(next_lk);
+            lk = std::move(next_lk);
         }
         return {};
     }
@@ -90,22 +90,22 @@ public:
     template <typename Predicate>
     bool remove_first_if(Predicate p) {
         node* current = &head;
-        unique_lock<mutex> lk(head.m);
+        std::unique_lock<std::mutex> lk(head.m);
         while (node* const next = current->next.get()) {
-            unique_lock<mutex> next_lk(next->m);
+            std::unique_lock<std::mutex> next_lk(next->m);
             if (p(*next->data)) {
-                unique_ptr<node> old_next = move(current->next);
+                std::unique_ptr<node> old_next = std::move(current->next);
                 if (old_next->next) {
                     old_next->next->prev = current;
                 }
-                current->next = move(old_next->next);
+                current->next = std::move(old_next->next);
                 next_lk.unlock();
                 size_--;
                 return true;
             }
             lk.unlock();
             current = next;
-            lk = move(next_lk);
+            lk = std::move(next_lk);
         }
         return false;
     }
@@ -114,32 +114,32 @@ public:
     void remove_if(Predicate p)
     {
         node *current = &head;
-        unique_lock<mutex> lk(head.m);
+        std::unique_lock<std::mutex> lk(head.m);
         while (node *const next = current->next.get())
         {
-            unique_lock<mutex> next_lk(next->m);
+            std::unique_lock<std::mutex> next_lk(next->m);
             if (p(*next->data))
             {
-                unique_ptr<node> old_next = move(current->next);
+                std::unique_ptr<node> old_next = std::move(current->next);
                 if (old_next->next) {
                     old_next->next->prev = current;
                 }
-                current->next = move(old_next->next);
+                current->next = std::move(old_next->next);
                 next_lk.unlock();
                 size_--;
             }
             lk.unlock();
             current = next;
-            lk = move(next_lk);
+            lk = std::move(next_lk);
         }
     }
 
     size_t add(T const &value)
     {
         size_t new_id = next_id_++;
-        unique_ptr<node> new_node(new node(value, new_id));
-        lock_guard<mutex> lk(head.m);
-        new_node->next = move(head.next);
+        std::unique_ptr<node> new_node(new node(value, new_id));
+        std::lock_guard<std::mutex> lk(head.m);
+        new_node->next = std::move(head.next);
         if (head.next) {
             head.next->prev = new_node.get();
         }
@@ -152,13 +152,13 @@ public:
     bool remove_by_id(size_t id)
     {
         node *current = &head;
-        unique_lock<mutex> lk(head.m);
+        std::unique_lock<std::mutex> lk(head.m);
         while (node *const next = current->next.get())
         {
-            unique_lock<mutex> next_lk(next->m);
+            std::unique_lock<std::mutex> next_lk(next->m);
             if (next->id == id)  // Check ID match
             {
-                unique_ptr<node> old_next = move(current->next);
+                std::unique_ptr<node> old_next = move(current->next);
                 if (old_next->next) {
                     old_next->next->prev = current;
                 }

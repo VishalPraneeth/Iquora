@@ -16,7 +16,7 @@ bool ActorLifecycle::ValidateActorId(const std::string& actor_id) const {
 }
 
 bool ActorLifecycle::SpawnActor(const std::string& actor_id,
-                              const std::unordered_map<std::string, std::string>& initial_state = {}) {
+                              const std::unordered_map<std::string, std::string>& initial_state) {
     if (!ValidateActorId(actor_id)) {
         return false;
     }
@@ -24,7 +24,7 @@ bool ActorLifecycle::SpawnActor(const std::string& actor_id,
     std::lock_guard<std::mutex> lock(mutex_);
     
     // Check if actor already exists
-    if (!ActorExists(actor_id)) {
+    if (ActorExists(actor_id)) {
         return false;
     }
     
@@ -52,7 +52,7 @@ bool ActorLifecycle::SpawnActor(const std::string& actor_id,
     }
 }
 
-bool ActorLifecycle::TerminateActor(const std::string& actor_id, bool force = false) {
+bool ActorLifecycle::TerminateActor(const std::string& actor_id, bool force) {
     std::lock_guard<std::mutex> lock(mutex_);
     
     if (active_actors_.find(actor_id) == active_actors_.end()) {
@@ -111,7 +111,7 @@ void ActorLifecycle::RegisterPostTerminateHook(LifecycleCallback hook) {
     post_terminate_hook_ = std::move(hook);
 }
 
-void ActorLifecycle::ExecuteHookSafely(LifecycleCallback hook, const std::string& actor_id) {
+void ActorLifecycle::ExecuteHookSafely(LifecycleCallback& hook, const std::string& actor_id) {
     if (hook) {
         try {
             hook(actor_id);

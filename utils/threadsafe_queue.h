@@ -9,7 +9,6 @@
 #include <atomic>
 #include <deque>
 #include <limits>
-using namespace std;
 
 // BoundedThreadsafeQueue<T>
 // - Single mutex to avoid deadlocks.
@@ -45,8 +44,8 @@ public:
     std::shared_ptr<T> WaitAndPop();
     bool WaitAndPop(T &value, std::chrono::milliseconds timeout);
     void Push(T new_value);
-    bool Empty();
-    uint32_t GetSize();
+    bool Empty() const;
+    uint32_t GetSize() const;
 
     void Stop() {
         stopped_.store(true);

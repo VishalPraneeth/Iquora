@@ -10,11 +10,8 @@ using namespace std;
 #define SUBSCRIPTION_SYSTEM_H
 
 #include "utils/threadsafe_list.h"
-#include <functional>
 #include <memory>
 #include <mutex>
-#include <unordered_map>
-#include <string>
 
 class SubscriptionSystem {
 public:
@@ -43,7 +40,7 @@ private:
     public:
         SubID add(SubCallback callback);
         bool remove(SubID id);
-        void invoke_all();
+        void invoke_all(NotifyHandler handler);
         size_t size() const;
 
     private:

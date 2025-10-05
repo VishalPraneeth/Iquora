@@ -49,6 +49,6 @@ private:
     LifecycleCallback pre_terminate_hook_;
     LifecycleCallback post_terminate_hook_;
     
-    void ExecuteHookSafely(LifecycleCallback hook, const std::string& actor_id);
+    void ExecuteHookSafely(LifecycleCallback& hook, const std::string& actor_id);
     bool ValidateActorId(const std::string& actor_id) const;
 };

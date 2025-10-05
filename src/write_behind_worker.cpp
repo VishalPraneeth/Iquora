@@ -2,6 +2,7 @@
 #include "wal.h"
 #include <chrono>
 #include <iostream>
+#include "utils/threadsafe_queue.h"
 using namespace std;
 
 WriteBehindWorker::WriteBehindWorker(MemStore &store, WAL &wal, size_t batch_size)

@@ -1,5 +1,5 @@
 #include "scheduler.h"
-#include <thread_pool.h>
+#include <utils/thread_pool.h>
 
 Scheduler::Scheduler(std::unique_ptr<ThreadPool<>> poolPtr_) : poolPtr(std::move(poolPtr_)), work_queues(), done(false) {
     // Start actor scheduling loop
@@ -23,7 +23,7 @@ void Scheduler::Register(ActorType &actor) {
 }
 
 template <typename ActorType>
-void Scheduler::Deregister(ActorType actor) {
+void Scheduler::Deregister(ActorType& actor) {
     work_queues.remove_if([&actor](BoundedThreadsafeQueue<std::unique_ptr<Callable>> *qPtr)
                           { return (qPtr == actor.GetQueueRef()); });
 }

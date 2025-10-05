@@ -1,68 +1,56 @@
 #ifndef CALLABLE_H_
 #define CALLABLE_H_
-using namespace std;
 
-class Callable
-{
+class Callable {
     // This wraps a function and makes it move-only. function callables are
     // copy-constructible, which would not be thread safe since the function
     // could be modified or destroyed anytime after after being passed to a
     // packaged_task
 private:
-    struct ImplBase
-    {
+    struct ImplBase {
         virtual void call() = 0;
         virtual ~ImplBase() {}
     };
-    unique_ptr<ImplBase> impl;
 
     template <typename F>
-    struct ImplType : ImplBase
-    {
+    struct ImplType : ImplBase {
         F f;
-        ImplType(F &&f_) : f(move(f_)) {}
-        void call() { f(); }
+        ImplType(F &&func) : f(std::forward<F>(func)) {}
+        void call() override { f(); }
     };
 
-    template <typename F>
+    std::unique_ptr<ImplBase> impl;
 
-    struct ImplType<unique_ptr<F>> : ImplBase
-    {
+    template <typename F>
+    struct ImplType<std::unique_ptr<F>> : ImplBase {
         // Specialization for unique_ptr pointers to callable types
         F f;
-        ImplType(F f_) : f(move(f_)) {}
-        void call()
-        {
+        ImplType(F f_) : f(std::forward<F>(f_)) {}
+        void call() {
             f();
         }
     };
 
 public:
-    template <typename F>
-    Callable(F &&f)
-    {
-        impl = unique_ptr<ImplBase>{new ImplType<F>(move(f))};
-    }
-
-    void operator()()
-    {
-        impl->call();
-    }
-
     Callable() = default;
-    Callable(Callable &&other) : impl(move(other.impl))
-    {
+
+    template <typename F>
+    Callable(F &&f) {
+        impl = std::unique_ptr<ImplType<F>>{new ImplType<F>(std::forward<F>(f))};
     }
 
-    Callable &operator=(Callable &&other)
-    {
-        impl = move(other.impl);
-        return *this;
+    void operator()() {
+        if(impl) {
+            impl->call();
+        }
     }
     
+     // Allow moving
+    Callable(Callable&&) = default;
+    Callable& operator=(Callable&&) = default;   
+
     Callable(const Callable &) = delete;
-    Callable(Callable &) = delete;
-    Callable &operator=(const Callable &) = delete;
+    Callable &operator=(const Callable&) = delete;
 };
 
 #endif // CALLABLE_H_

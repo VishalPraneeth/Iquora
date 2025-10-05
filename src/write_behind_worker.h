@@ -14,9 +14,9 @@ class WriteBehindWorker
 public:
     struct DirtyRecord
     {
-        string actor_id;
-        string key;
-        string value;
+        std::string actor_id;
+        std::string key;
+        std::string value;
     };
 
     WriteBehindWorker(MemStore &store, WAL &wal, size_t batch_size = 100);
