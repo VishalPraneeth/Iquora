@@ -24,6 +24,7 @@
 #include <grpcpp/support/status.h>
 #include <grpcpp/support/stub_options.h>
 #include <grpcpp/support/sync_stream.h>
+#include <grpcpp/ports_def.inc>
 
 namespace iquora {
 
@@ -864,4 +865,5 @@ class StateStore final {
 }  // namespace iquora
 
 
+#include <grpcpp/ports_undef.inc>
 #endif  // GRPC_iquora_2eproto__INCLUDED
