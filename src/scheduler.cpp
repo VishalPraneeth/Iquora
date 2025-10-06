@@ -4,7 +4,7 @@
 Scheduler::Scheduler(std::unique_ptr<ThreadPool<>> poolPtr_) : poolPtr(std::move(poolPtr_)), work_queues(), done(false) {
     // Start actor scheduling loop
     auto func = [this]() { this->ScheduleActors(); };
-    poolPtr->Submit(Callable(std::move(func)));
+    poolPtr->Submit(std::move(func));
 
     // Start timer thread
     timer_thread = std::thread([this]() { this->ScheduleTimers(); });
@@ -34,7 +34,7 @@ void Scheduler::ScheduleActors() {
             std::unique_ptr<Callable> workPtr;
             while (qPtr->WaitAndPop(workPtr, std::chrono::milliseconds(50))) {
                 if (workPtr) {
-                    poolPtr->Submit(std::move(*workPtr));
+                    (*workPtr)();
                 }
             }
         });
@@ -73,7 +73,7 @@ void Scheduler::ScheduleTimers() {
                 timer_queue.pop();
                 lock.unlock();
 
-                poolPtr->Submit(Callable(next_task.fn));
+                poolPtr->Submit(next_task.fn);
 
                 // Reschedule if periodic
                 if (next_task.repeat_interval.count() > 0) {

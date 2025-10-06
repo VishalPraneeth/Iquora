@@ -137,7 +137,7 @@ public:
     size_t add(T const &value)
     {
         size_t new_id = next_id_++;
-        std::unique_ptr<node> new_node(new node(value, new_id));
+        std::unique_ptr<node> new_node(new node(value));
         std::lock_guard<std::mutex> lk(head.m);
         new_node->next = std::move(head.next);
         if (head.next) {

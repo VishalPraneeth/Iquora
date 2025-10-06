@@ -70,9 +70,35 @@ private:
     // subscription callback signature
     using SubCallback = std::function<void(const iquora::SubscribeResponse&)>;
 
+    // Callback wrapper with ID for removal
+    struct CallbackWrapper {
+        size_t id;
+        SubCallback callback;
+        
+        CallbackWrapper(size_t id, SubCallback cb) : id(id), callback(std::move(cb)) {}
+    };
+
     // A small subscription manager using a threadsafe map + threadsafe_list of callbacks
     struct SubscriptionList {
-        ThreadSafeList<SubCallback> callbacks; // list of callbacks for an actor
+        ThreadSafeList<CallbackWrapper> callbacks; // list of callbacks for an actor
+
+        std::atomic<size_t> next_id_{1};
+        
+        size_t add(SubCallback callback) {
+            size_t id = next_id_.fetch_add(1);
+            callbacks.push_front(CallbackWrapper(id, std::move(callback)));
+            return id;
+        }
+        
+        bool remove(size_t id) {
+            return callbacks.remove_first_if([id](const CallbackWrapper& wrapper) {
+                return wrapper.id == id;
+            });
+        }
+        
+        size_t size() const {
+            return callbacks.size();
+        }
     };
 
     // find-or-create subscription list for actor

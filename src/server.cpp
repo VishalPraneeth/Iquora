@@ -109,11 +109,13 @@ void IquoraServiceImpl::publish_change(const std::string& actor_id,
 
     // iterate the threadsafe list and invoke callbacks
     // ThreadSafeList is expected to have for_each or an iterator; I'll assume a for_each method.
-    list->callbacks.for_each([&msg](const SubCallback& cb) {
+    list->callbacks.for_each([&msg](const CallbackWrapper& wrapper) {
         // schedule on user threadpool to avoid blocking publisher
         // capture message by value; we could move into lambda if necessary
         try {
-            cb(*msg);
+            if(wrapper.callback) {
+                wrapper.callback(*msg);
+            }
         } catch (...) {
             // swallow callback exceptions to keep publisher robust
         }
@@ -134,9 +136,13 @@ void IquoraServiceImpl::remove_callback(const std::string& actor_id, size_t cb_i
     std::lock_guard<std::mutex> lg(subs_map_mutex_);
     auto it = subs_map_.find(actor_id);
     if (it == subs_map_.end()) return;
-    it->second->callbacks.remove_first_if(cb_id);
+    it->second->callbacks.remove_first_if([cb_id] (const CallbackWrapper& wrapper) {
+        return wrapper.id == cb_id;
+    });
     // optional: if list empty, erase map entry
-    // (ThreadSafeList likely provides a size() or is_empty() method — adapt if present)
+    if(it->second->callbacks.size() == 0) {
+        subs_map_.erase(it);
+    }
 }
 
 Status IquoraServiceImpl::Subscribe(ServerContext* context, 
@@ -159,7 +165,7 @@ Status IquoraServiceImpl::Subscribe(ServerContext* context,
 
     // Register callback in subscription list and keep returned id for removal
     auto subs = get_or_create_subs(actor);
-    size_t cb_id = subs->callbacks.add(cb); // add returns an id to remove later
+    size_t cb_id = subs->add(cb); // add returns an id to remove later
 
     // Stream loop: block on inbound queue and write to client, exit on client cancellation
     while (!context->IsCancelled()) {
