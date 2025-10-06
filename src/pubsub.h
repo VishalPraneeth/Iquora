@@ -1,17 +1,10 @@
 #pragma once
 #include <functional>
 #include <unordered_map>
-#include <vector>
 #include <string>
-using namespace std;
-
-
-#ifndef SUBSCRIPTION_SYSTEM_H
-#define SUBSCRIPTION_SYSTEM_H
-
-#include "utils/threadsafe_list.h"
 #include <memory>
 #include <mutex>
+#include "utils/threadsafe_list.h"
 
 class SubscriptionSystem {
 public:
@@ -22,10 +15,10 @@ public:
     // Subscription management
     SubID subscribe(const std::string& actor_id, SubCallback callback);
     bool unsubscribe(const std::string& actor_id, SubID id);
-    
+
     // Notification
     void notify(const std::string& actor_id, NotifyHandler handler);
-    
+
     // Query
     size_t subscriber_count(const std::string& actor_id) const;
 
@@ -33,7 +26,7 @@ private:
     struct CallbackWrapper {
         SubID id;
         SubCallback callback;
-        CallbackWrapper(SubID id, SubCallback cb);
+        CallbackWrapper(SubID id, SubCallback cb) : id(id), callback(std::move(cb)) {}
     };
 
     class SubscriptionList {
@@ -51,5 +44,3 @@ private:
     std::unordered_map<std::string, std::unique_ptr<SubscriptionList>> subscriptions_;
     mutable std::mutex mutex_;
 };
-
-#endif // SUBSCRIPTION_SYSTEM_H
